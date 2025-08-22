@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trust the Crowd</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="root" class="App"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      const questions = [
+        { question: "Would you lie to protect a friend from a crime?", optionA: "Yes, I would lie", optionB: "No, I would not" },
+        { question: "Is it worse to cheat on a test or let someone else get away with it?", optionA: "Cheat on a test", optionB: "Let someone else get away with it" },
+        { question: "Save one person you love or five strangers?", optionA: "Save one I love", optionB: "Save five strangers" },
+        { question: "Is it okay to steal to feed a starving child?", optionA: "Yes, it's justified", optionB: "No, stealing is wrong" },
+        { question: "Admit a mistake or let someone else take the blame?", optionA: "Admit my mistake", optionB: "Let someone else take the blame" },
+        { question: "Would you sacrifice privacy for security?", optionA: "Yes, security first", optionB: "No, privacy matters more" },
+        { question: "Speak up against a popular opinion or stay silent?", optionA: "Speak up", optionB: "Stay silent" }
+      ];
+
+      function getRandomStats() {
+        var arr = [];
+        for (var i = 0; i < questions.length; i++) {
+          var A = Math.floor(Math.random() * 61) + 20;
+          arr.push({ A: A, B: 100 - A });
+        }
+        return arr;
+      }
+
+      function getConformityMessage(percent, isChanging) {
+        if (isChanging) {
+          if (percent >= 70) return "A large majority changed their answer.";
+          if (percent > 50) return "A majority changed their answer.";
+          if (percent === 50) return "Half changed their answer.";
+          return "Less than half changed their answer.";
+        } else {
+          if (percent >= 70) return "You went against a large majority.";
+          if (percent > 50) return "You went against the majority.";
+          if (percent === 50) return "The crowd was evenly split; you maintained your answer.";
+          return "Less than half changed their answer; you maintained yours.";
+        }
+      }
+
+      function Home() {
+        const [qIdx, setQIdx] = useState(0);
+        const [answers, setAnswers] = useState([]);
+        const [phase, setPhase] = useState('question');
+        const [selected, setSelected] = useState(null);
+        const [timer, setTimer] = useState(10);
+        const [peerPercent, setPeerPercent] = useState(0);
+        const [stats] = useState(getRandomStats());
+
+        useEffect(function () {
+          if (phase !== 'confirm') return;
+          if (timer > 0) {
+            const id = setTimeout(function () { setTimer(timer - 1); }, 1000);
+            return function () { clearTimeout(id); };
+          } else {
+            handleFinal(selected);
+          }
+        }, [phase, timer]);
+
+        function handleAnswer(choice) {
+          setSelected(choice);
+          setPhase('confirm');
+          setTimer(10);
+          setPeerPercent(Math.floor(Math.random() * 41) + 30);
+        }
+
+        function handleFinal(choice) {
+          var s = stats[qIdx];
+          var other = choice === 'A' ? 'B' : 'A';
+          var agreed = s[choice] >= s[other];
+          var changed = selected !== choice;
+
+          var newAnswers = answers.concat({ initial: selected, final: choice, changed: changed, agreed: agreed });
+          setAnswers(newAnswers);
+          setPhase('peer');
+        }
+
+        function handleNext() {
+          var next = qIdx + 1;
+          if (next === questions.length) {
+            setPhase('summary');
+          } else {
+            setQIdx(next);
+            setSelected(null);
+            setPhase('question');
+            setTimer(10);
+          }
+        }
+
+        if (phase === 'summary') {
+          var agreedCount = 0;
+          var changedCount = 0;
+          for (var i = 0; i < answers.length; i++) {
+            if (answers[i].agreed) agreedCount++;
+            if (answers[i].changed) changedCount++;
+          }
+          var changeRate = Math.round((changedCount / questions.length) * 100);
+          var changeRateText = changeRate >= 70 ? 'High susceptibility to social information.' :
+                              changeRate >= 50 ? 'Moderate susceptibility to social information.' :
+                              changeRate >= 30 ? 'Some susceptibility to social information.' :
+                              'Low susceptibility to social information.';
+          var patternText = changeRate >= 60 ? 'Behavior often aligned with the majority under visible social information.' :
+                            changeRate <= 30 ? 'Behavior remained largely independent even after seeing social information.' :
+                            'Mixed pattern: sometimes aligning with the majority, sometimes remaining independent.';
+
+          return (
+            <div className="summary">
+              <h2>Psychology Summary</h2>
+              <div className="psychology-stats">
+                <h3>Your Social Behavior Analysis</h3>
+                <div className="stat-grid">
+                  <div className="stat-item">
+                    <h4>Mind changes</h4>
+                    <p className="stat-number">{changedCount}</p>
+                    <p className="stat-label">out of {questions.length} questions</p>
+                  </div>
+                  <div className="stat-item">
+                    <h4>Crowd agreement</h4>
+                    <p className="stat-number">{agreedCount}</p>
+                    <p className="stat-label">times you sided with the majority</p>
+                  </div>
+                  <div className="stat-item">
+                    <h4>Change rate</h4>
+                    <p className="stat-number">{changeRate}%</p>
+                    <p className="stat-label">of answers changed after seeing the crowd</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="conformity-insights">
+                <h3>Interpretation</h3>
+                <ul>
+                  <li><strong>Change rate {changeRate}%:</strong> {changeRateText}</li>
+                  <li><strong>Overall pattern:</strong> {patternText}</li>
+                </ul>
+              </div>
+
+              <h3>Question-by-question analysis</h3>
+              <ul>
+                {questions.map(function (q, i) {
+                  var a = answers[i];
+                  var initialText = a ? (a.initial === 'A' ? q.optionA : q.optionB) : '';
+                  var finalText = a ? (a.final === 'A' ? q.optionA : q.optionB) : '';
+                  return (
+                    <li key={i} className={a && a.changed ? 'changed-answer' : ''}>
+                      <strong>Q{i + 1}:</strong> {q.question}<br />
+                      <span>Initial: {initialText}</span><br />
+                      <span>Final: {finalText}</span><br />
+                      <span>
+                        Crowd: {stats[i].A}% chose {q.optionA}, {stats[i].B}% chose {q.optionB}<br />
+                        {a && a.agreed ? 'You agreed with the crowd.' : 'You went against the crowd.'}
+                        {a && a.changed ? ' You changed your answer.' : ''}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        }
+
+        var q = questions[qIdx];
+        var s = stats[qIdx];
+        var a = answers[qIdx];
+        var selectedText = selected === 'A' ? q.optionA : selected === 'B' ? q.optionB : '';
+        var otherText = selected === 'A' ? q.optionB : selected === 'B' ? q.optionA : '';
+        var changeText = a ? (a.initial !== a.final ? 'changed' : 'stuck with') : '';
+
+        return (
+          <div className="question-card">
+            <h2>Trust the Crowd?</h2>
+            <p><strong>Question {qIdx + 1} of {questions.length}</strong></p>
+            <p>{q.question}</p>
+            {phase === 'question' ? (
+              <div className="options">
+                <button onClick={function () { handleAnswer('A'); }}>{q.optionA}</button>
+                <button onClick={function () { handleAnswer('B'); }}>{q.optionB}</button>
+              </div>
+            ) : null}
+            {phase === 'confirm' ? (
+              <div className="result">
+                <p>Fake Crowd Stats:</p>
+                <p>{q.optionA}: {s.A}% &nbsp;|&nbsp; {q.optionB}: {s.B}%</p>
+                <p>You chose: <strong>{selectedText}</strong></p>
+                <p>Now that you know what the crowd thinks, do you want to stick with your answer or change it?</p>
+                <div className="options">
+                  <button onClick={function () { handleFinal(selected); }} disabled={timer === 0}>Stick with my answer</button>
+                  <button onClick={function () { handleFinal(selected === 'A' ? 'B' : 'A'); }} disabled={timer === 0}>Change to {otherText}</button>
+                </div>
+                <p style={{ color: timer <= 3 ? 'red' : undefined }}>Time left: {timer}s</p>
+              </div>
+            ) : null}
+            {phase === 'peer' ? (
+              <div className="result">
+                <p>Fake Crowd Stats:</p>
+                <p>{q.optionA}: {s.A}% &nbsp;|&nbsp; {q.optionB}: {s.B}%</p>
+                <p>You {changeText} your answer after seeing the stats.</p>
+                <div className="conformity-feedback">
+                  <p><strong>{peerPercent}% of players changed their answer after seeing the stats.</strong></p>
+                  <p className="conformity-message">{getConformityMessage(peerPercent, a && a.changed)}</p>
+                </div>
+                <button onClick={handleNext}>
+                  {qIdx === questions.length - 1 ? 'See summary' : 'Next'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<Home />);
+    </script>
+  </body>
+  </html>
+
