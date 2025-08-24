@@ -1,4 +1,4 @@
-# Trust the Crowd
+# Trust the Crowd?
 
 A psychology experiment that explores social conformity and decision-making under peer pressure.
 
